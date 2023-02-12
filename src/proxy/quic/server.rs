@@ -7,6 +7,7 @@ use futures::StreamExt;
 use quinn;
 use std::net::ToSocketAddrs;
 use std::{io::Result, net::SocketAddr};
+use std::sync::Arc;
 use tokio::net::TcpStream;
 
 pub async fn start(
@@ -23,7 +24,12 @@ pub async fn start(
     // TODO: Avoid using unwrap
     let server_crypto = make_server_config(&inbound_config.tls.clone().unwrap()).unwrap();
 
-    let config = quinn::ServerConfig::with_crypto(server_crypto);
+    let mut config = quinn::ServerConfig::with_crypto(server_crypto);
+
+    // Set congestion controller to bbr
+    let mut transport_config = quinn::TransportConfig::default();
+    transport_config.congestion_controller_factory(Arc::new(quinn::congestion::BbrConfig::default()));
+    config.transport = Arc::new(transport_config); 
 
     // Create QUIC server socket
     let (_endpoint, mut socket) = quinn::Endpoint::server(config, address).unwrap();

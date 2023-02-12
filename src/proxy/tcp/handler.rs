@@ -207,7 +207,15 @@ impl TcpHandler {
             .with_custom_certificate_verifier(Arc::new(NoCertificateVerification {}))
             .with_no_client_auth();
         let mut endpoint = quinn::Endpoint::client("[::]:0".parse().unwrap()).unwrap();
-        endpoint.set_default_client_config(quinn::ClientConfig::new(Arc::new(client_crypto)));
+        
+        let mut client_config = quinn::ClientConfig::new(Arc::new(client_crypto));
+        
+        // Change default congestion controller to bbr
+        let mut transport_config = quinn::TransportConfig::default();
+        transport_config.congestion_controller_factory(Arc::new(quinn::congestion::BbrConfig::default()));
+        client_config.transport = Arc::new(transport_config);
+        
+        endpoint.set_default_client_config(client_config);
 
         // Establish connection with remote proxy server using QUIC protocol
         let connection = endpoint
